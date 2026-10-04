@@ -26,3 +26,4 @@ Trailer-style scroll-scrubbed film of *The Alchemist*: 6 scenes, ~48 s.
 
 ## Decisions
 - M2: source clips are already native 1920x1080, so Real-ESRGAN upscaling was skipped (it would only re-upscale a downscale). Frames are re-exported at 1920 directly. `CROP_ANCHOR_Y` is in 720p units and scales with frame height, so no change needed. Quality 80 keeps frames/ under 45 MB (85 would be ~50 MB).
+- M3: load order = first 30 frames (gates Enter, 2.8 MB) -> every 8th frame (84 frames, ~8 MB cumulative, max gap 8) -> gaps filled by halving (4, 2/6, 1/3/5/7). `draw()` shows the nearest loaded frame in either direction and redraws when a closer one arrives. Decoded size is ~8.3 MB/frame at 1920x1080, so holding all 688 decoded would be ~5.7 GB worst case; relies on the browser evicting decoded bitmaps.

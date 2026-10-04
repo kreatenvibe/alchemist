@@ -2,6 +2,7 @@
 const FRAME_COUNT = 688;      // frames/f_0001.webp ... f_0688.webp (see scripts/build-frames.sh)
 const PRELOAD_COUNT = 30;     // frames needed before "Enter" appears
 const LAZY_WORKERS = 4;       // parallel downloads for the remaining frames
+const COARSE_STEP = 8;        // after the first frames, load every Nth frame so scrubbing always has a close match
 const VOL_ACTIVE = 0.6;       // volume while scrolling
 const VOL_IDLE = 0.35;        // volume when scrolling stops
 const IDLE_DELAY = 250;       // ms without scroll before dipping
@@ -36,10 +37,13 @@ function loadFrame(i) {
   });
 }
 
-// Draw frame i, or the closest earlier loaded frame if i is not ready yet
+// Draw frame i, or the nearest loaded frame (either direction) if i is not ready yet
 function draw(i, force) {
-  let j = i;
-  while (j > 0 && !images[j]) j--;
+  let j = -1;
+  for (let d = 0; d < FRAME_COUNT && j < 0; d++) {
+    if (images[i - d]) j = i - d;
+    else if (images[i + d]) j = i + d;
+  }
   const img = images[j];
   if (!img || (j === drawnFrame && !force)) return;
   drawnFrame = j;
@@ -82,14 +86,34 @@ async function preload() {
   draw(0, true);
   loader.classList.add('is-ready');
   enterBtn.hidden = false;
+  performance.mark('enter-ready');
   lazyLoadRest();
 }
 
-// Remaining frames, in order, a few at a time
+// Load order after the first frames: every COARSE_STEP-th frame across the whole film, then the
+// gaps, halving the spacing each pass (offsets 4, 2/6, 1/3/5/7 for a step of 8)
+function loadOrder() {
+  const order = [];
+  const seen = new Set();
+  const add = i => { if (i < FRAME_COUNT && !images[i] && !seen.has(i)) { seen.add(i); order.push(i); } };
+  for (let i = PRELOAD_COUNT; i < FRAME_COUNT; i += COARSE_STEP) add(i);
+  add(FRAME_COUNT - 1);
+  for (let step = COARSE_STEP / 2; step >= 1; step /= 2) {
+    for (let i = PRELOAD_COUNT; i < FRAME_COUNT; i += step) add(i);
+  }
+  for (let i = PRELOAD_COUNT; i < FRAME_COUNT; i++) add(i);   // safety net
+  return order;
+}
+
 function lazyLoadRest() {
-  let next = PRELOAD_COUNT;
+  const order = loadOrder();
+  let next = 0;
   const worker = async () => {
-    while (next < FRAME_COUNT) await loadFrame(next++);
+    while (next < order.length) {
+      const i = order[next++];
+      await loadFrame(i);
+      if (i === currentFrame || !images[currentFrame]) draw(currentFrame);   // swap in a closer frame
+    }
   };
   for (let w = 0; w < LAZY_WORKERS; w++) worker();
 }
