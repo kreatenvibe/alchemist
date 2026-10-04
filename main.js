@@ -1,5 +1,5 @@
-// Scene 1 scroll-scrub test
-const FRAME_COUNT = 121;
+// Scroll-scrub test (scenes 1-3)
+const FRAME_COUNT = 348;
 const framePath = i => `frames/f_${String(i).padStart(4, '0')}.webp`;
 
 const canvas = document.getElementById('film');
