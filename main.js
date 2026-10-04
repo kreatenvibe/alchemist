@@ -1,53 +1,158 @@
-// Scroll-scrub test (scenes 1-6)
-const FRAME_COUNT = 688;
-const framePath = i => `frames/f_${String(i).padStart(4, '0')}.webp`;
+// The Alchemist: scroll-scrubbed film
+const FRAME_COUNT = 688;      // frames/f_0001.webp ... f_0688.webp (see scripts/build-frames.sh)
+const PRELOAD_COUNT = 30;     // frames needed before "Enter" appears
+const LAZY_WORKERS = 4;       // parallel downloads for the remaining frames
+const VOL_ACTIVE = 0.6;       // volume while scrolling
+const VOL_IDLE = 0.35;        // volume when scrolling stops
+const IDLE_DELAY = 250;       // ms without scroll before dipping
+
+const framePath = i => `frames/f_${String(i + 1).padStart(4, '0')}.webp`;
 
 const canvas = document.getElementById('film');
 const ctx = canvas.getContext('2d');
-const hudFrame = document.getElementById('hudFrame');
-document.getElementById('hudTotal').textContent = FRAME_COUNT;
+const loader = document.getElementById('loader');
+const barFill = document.getElementById('barFill');
+const pct = document.getElementById('pct');
+const enterBtn = document.getElementById('enter');
+const muteBtn = document.getElementById('mute');
 
-const images = [];
-let current = -1;
+/* ---------- Frames ---------- */
+const images = new Array(FRAME_COUNT).fill(null);   // loaded, decoded images only
+let currentFrame = 0;
+let drawnFrame = -1;
 
-function resize() {
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = innerWidth * dpr;
-  canvas.height = innerHeight * dpr;
-  draw(current < 0 ? 0 : current, true);
+function loadFrame(i) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.src = framePath(i);
+    img.decode().then(() => { images[i] = img; resolve(); }).catch(resolve);
+  });
 }
 
-// "cover" fit
+// Draw frame i, or the closest earlier loaded frame if i is not ready yet
 function draw(i, force) {
-  const img = images[i];
-  if (!img || !img.complete || !img.naturalWidth) return;
-  if (i === current && !force) return;
-  current = i;
-  const s = Math.max(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);
+  let j = i;
+  while (j > 0 && !images[j]) j--;
+  const img = images[j];
+  if (!img || (j === drawnFrame && !force)) return;
+  drawnFrame = j;
+  const s = Math.max(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);   // cover
   const w = img.naturalWidth * s, h = img.naturalHeight * s;
   ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
-  hudFrame.textContent = i + 1;
 }
 
-for (let i = 1; i <= FRAME_COUNT; i++) {
-  const img = new Image();
-  img.src = framePath(i);
-  images.push(img);
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(innerWidth * dpr);
+  canvas.height = Math.round(innerHeight * dpr);
+  draw(currentFrame, true);
 }
-images[0].onload = () => resize();
 addEventListener('resize', resize);
+resize();
 
+async function preload() {
+  let done = 0;
+  const tasks = [];
+  for (let i = 0; i < PRELOAD_COUNT; i++) {
+    tasks.push(loadFrame(i).then(() => {
+      done++;
+      const p = Math.round((done / PRELOAD_COUNT) * 100);
+      barFill.style.width = p + '%';
+      pct.textContent = p + '%';
+    }));
+  }
+  await Promise.all(tasks);
+  draw(0, true);
+  loader.classList.add('is-ready');
+  enterBtn.hidden = false;
+  lazyLoadRest();
+}
+
+// Remaining frames, in order, a few at a time
+function lazyLoadRest() {
+  let next = PRELOAD_COUNT;
+  const worker = async () => {
+    while (next < FRAME_COUNT) await loadFrame(next++);
+  };
+  for (let w = 0; w < LAZY_WORKERS; w++) worker();
+}
+
+/* ---------- Audio ---------- */
+const audio = new Audio('audio/theme.mp3');
+audio.loop = true;
+audio.volume = 0;
+
+const level = { v: 0 };            // master volume, tweened
+let audioOn = false;
+let muted = false;
+try { muted = localStorage.getItem('alchemist-muted') === '1'; } catch (e) {}
+
+function renderMute() {
+  muteBtn.setAttribute('aria-pressed', String(muted));
+  muteBtn.setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
+  audio.muted = muted;
+}
+renderMute();
+
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  try { localStorage.setItem('alchemist-muted', muted ? '1' : '0'); } catch (e) {}
+  renderMute();
+});
+
+function fadeTo(v, duration) {
+  gsap.to(level, { v, duration, ease: 'sine.inOut', overwrite: true, onUpdate: () => { audio.volume = level.v; } });
+}
+
+let idleTimer;
+function onScrollActivity() {
+  if (!audioOn) return;
+  clearTimeout(idleTimer);
+  if (level.v < VOL_ACTIVE - 0.01) fadeTo(VOL_ACTIVE, 0.8);
+  idleTimer = setTimeout(() => fadeTo(VOL_IDLE, 1.5), IDLE_DELAY);
+}
+
+/* ---------- Scroll ---------- */
 gsap.registerPlugin(ScrollTrigger);
 const lenis = new Lenis();
-lenis.on('scroll', ScrollTrigger.update);
+lenis.stop();
+lenis.on('scroll', () => { ScrollTrigger.update(); onScrollActivity(); });
 gsap.ticker.add(t => lenis.raf(t * 1000));
 gsap.ticker.lagSmoothing(0);
 
-const state = { frame: 0 };
-gsap.to(state, {
-  frame: FRAME_COUNT - 1,
-  ease: 'none',
-  snap: 'frame',
-  scrollTrigger: { trigger: '#scroller', start: 'top top', end: 'bottom bottom', scrub: 0.3 },
-  onUpdate: () => draw(Math.round(state.frame))
+ScrollTrigger.create({
+  trigger: '#film-scroll',
+  start: 'top top',
+  end: 'bottom bottom',
+  onUpdate: self => {
+    currentFrame = Math.min(FRAME_COUNT - 1, Math.round(self.progress * (FRAME_COUNT - 1)));
+    draw(currentFrame);
+  }
 });
+
+// End section: last frame stays as background, darkened, text fades in
+gsap.to('#veil', {
+  opacity: 0.6, ease: 'none',
+  scrollTrigger: { trigger: '#end', start: 'top bottom', end: 'top top', scrub: true }
+});
+gsap.to('#end p', {
+  opacity: 1, ease: 'none',
+  scrollTrigger: { trigger: '#end', start: 'top 40%', end: 'top top', scrub: true }
+});
+
+/* ---------- Enter ---------- */
+enterBtn.addEventListener('click', () => {
+  audio.play().catch(() => {});        // must start inside the click handler
+  audioOn = true;
+  fadeTo(VOL_ACTIVE, 2);
+  idleTimer = setTimeout(() => fadeTo(VOL_IDLE, 1.5), 2500);
+
+  loader.classList.add('is-hidden');
+  document.body.classList.remove('is-loading');
+  muteBtn.classList.add('is-visible');
+  window.scrollTo(0, 0);
+  lenis.start();
+  ScrollTrigger.refresh();
+});
+
+preload();

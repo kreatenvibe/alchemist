@@ -6,10 +6,31 @@
   <title>The Alchemist</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="is-loading">
   <canvas id="film"></canvas>
-  <div id="scroller"></div>
-  <div id="hud">frame <span id="hudFrame">1</span> / <span id="hudTotal"></span></div>
+  <div id="veil"></div>
+
+  <div id="loader">
+    <h1>The Alchemist</h1>
+    <div id="bar"><span id="barFill"></span></div>
+    <div id="pct">0%</div>
+    <button id="enter" type="button" hidden>Enter</button>
+  </div>
+
+  <main>
+    <section id="film-scroll"></section>
+    <section id="end">
+      <p>Summary coming soon</p>
+    </section>
+  </main>
+
+  <button id="mute" type="button" aria-label="Mute sound" aria-pressed="false">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M4 9v6h4l5 4V5L8 9H4z"></path>
+      <g id="waves"><path d="M16 9a4 4 0 0 1 0 6"></path><path d="M18.5 6.5a8 8 0 0 1 0 11"></path></g>
+      <g id="slash"><path d="M17 9l5 6M22 9l-5 6"></path></g>
+    </svg>
+  </button>
 
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
