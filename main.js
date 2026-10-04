@@ -142,6 +142,7 @@ async function preload() {
   draw(0, true);
   loader.classList.add('is-ready');
   enterBtn.hidden = false;
+  enterBtn.focus({ preventScroll: true });   // Enter/Space starts the film from the keyboard
   performance.mark('enter-ready');
   lazyLoadRest();
 }
@@ -236,7 +237,8 @@ function onScrollActivity() {
 
 /* ---------- Scroll ---------- */
 gsap.registerPlugin(ScrollTrigger);
-const lenis = new Lenis({ lerp: 0.07 });
+// Reduced motion: keep native wheel/touch scrolling, no smoothing
+const lenis = new Lenis(reduceMotion.matches ? { smoothWheel: false, syncTouch: false } : { lerp: 0.07 });
 lenis.stop();
 lenis.on('scroll', () => { ScrollTrigger.update(); onScrollActivity(); });
 gsap.ticker.add(t => lenis.raf(t * 1000));
@@ -298,6 +300,7 @@ gsap.to('#end .column', {
 /* ---------- Enter ---------- */
 enterBtn.addEventListener('click', () => {
   audio.play().catch(() => {});        // must start inside the click handler
+  enterBtn.blur();                     // so Space/arrows scroll the page, not re-press the button
   audioOn = true;
   fadeTo(VOL_ACTIVE, 2);
   idleTimer = setTimeout(() => fadeTo(VOL_IDLE, 1.5), 2500);
