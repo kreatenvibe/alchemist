@@ -1,16 +1,19 @@
 // The Alchemist: scroll-scrubbed film
-const FRAME_COUNT = 688;      // frames/f_0001.webp ... f_0688.webp (see scripts/build-frames.sh)
+// Small screens and touch devices get the lighter 720px / 10 fps set (see scripts/build-frames.sh)
+const MOBILE = matchMedia('(max-width: 767px), (pointer: coarse)').matches;
+const FRAME_DIR = MOBILE ? 'frames-mobile' : 'frames';
+const FRAME_COUNT = MOBILE ? 459 : 688;
 const PRELOAD_COUNT = 30;     // frames needed before "Enter" appears
 const LAZY_WORKERS = 4;       // parallel downloads for the remaining frames
 const COARSE_STEP = 8;        // after the first frames, load every Nth frame so scrubbing always has a close match
 const VOL_ACTIVE = 0.6;       // volume while scrolling
 const VOL_IDLE = 0.35;        // volume when scrolling stops
 const IDLE_DELAY = 250;       // ms without scroll before dipping
-const LETTERBOX = 2.39;       // cinematic aspect ratio
+let letterbox = 2.39;         // cinematic aspect ratio; read from the --ratio CSS variable (portrait uses a taller one)
 const SCENES = 6;
 const CROP_ANCHOR_Y = 570;    // lowest visible row, in 720p-equivalent pixels, scaled by frame height (watermark starts at ~576)
 
-const framePath = i => `frames/f_${String(i + 1).padStart(4, '0')}.webp`;
+const framePath = i => `${FRAME_DIR}/f_${String(i + 1).padStart(4, '0')}.webp`;
 
 const canvas = document.getElementById('film');
 const ctx = canvas.getContext('2d');
@@ -49,7 +52,7 @@ function draw(i, force) {
   drawnFrame = j;
   // cover the area between the letterbox bars; the visible source region never extends below
   // CROP_ANCHOR_Y (hides the corner watermark), zooming in further if the window is too tall
-  const bar = Math.max(0, (canvas.height - canvas.width / LETTERBOX) / 2);
+  const bar = Math.max(0, (canvas.height - canvas.width / letterbox) / 2);
   const ah = canvas.height - 2 * bar;
   const nw = img.naturalWidth, nh = img.naturalHeight;
   const maxY = CROP_ANCHOR_Y / 720 * nh;
@@ -61,6 +64,7 @@ function draw(i, force) {
 }
 
 function resize() {
+  letterbox = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ratio')) || 2.39;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.round(innerWidth * dpr);
   canvas.height = Math.round(innerHeight * dpr);
@@ -136,7 +140,7 @@ function drawGrain() {
 drawGrain();
 let grainTick = 0;
 (function grainLoop() {
-  if (!reduceMotion.matches && !document.hidden && ++grainTick % 2 === 0) drawGrain();
+  if (!MOBILE && !reduceMotion.matches && !document.hidden && ++grainTick % 2 === 0) drawGrain();
   requestAnimationFrame(grainLoop);
 })();
 
@@ -147,8 +151,11 @@ audio.volume = 0;
 
 const level = { v: 0 };            // master volume, tweened
 let audioOn = false;
-let muted = false;
-try { muted = localStorage.getItem('alchemist-muted') === '1'; } catch (e) {}
+let muted = MOBILE;               // phones start muted unless the visitor chose otherwise
+try {
+  const saved = localStorage.getItem('alchemist-muted');
+  if (saved !== null) muted = saved === '1';
+} catch (e) {}
 
 function renderMute() {
   muteBtn.setAttribute('aria-pressed', String(muted));

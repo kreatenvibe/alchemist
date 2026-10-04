@@ -8,20 +8,22 @@ body { font-family: Georgia, "Times New Roman", serif; }
 body.is-loading { overflow: hidden; }
 
 :root {
-  --bar: max(0px, calc((100vh - 100vw / 2.39) / 2));   /* 2.39:1 letterbox */
+  --vh: 100vh;
+  --ratio: 2.39;                                       /* letterbox aspect; main.js reads this */
+  --bar: max(0px, calc((var(--vh) - 100vw / var(--ratio)) / 2));
   --text: #f6ebd9;
   --shadow: 0 2px 12px rgba(0, 0, 0, .8);
   --serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
 }
 
-#film { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; filter: contrast(1.05) saturate(1.05); }
+#film { position: fixed; inset: 0; width: 100vw; height: var(--vh); display: block; filter: contrast(1.05) saturate(1.05); }
 #veil { position: fixed; inset: 0; z-index: 1; background: #000; opacity: 0; pointer-events: none; }
 #vignette {
   position: fixed; inset: 0; z-index: 2; pointer-events: none;
   background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, .4) 100%);
 }
 #grain {
-  position: fixed; inset: 0; z-index: 3; width: 100vw; height: 100vh; pointer-events: none;
+  position: fixed; inset: 0; z-index: 3; width: 100vw; height: var(--vh); pointer-events: none;
   opacity: .05; mix-blend-mode: overlay;
 }
 #band {
@@ -40,7 +42,7 @@ body.is-loading { overflow: hidden; }
 #title { top: 50%; transform: translateY(-50%); }
 #title h2 { margin: 0; font-weight: 500; font-size: clamp(2.4rem, 7vw, 6.5rem); letter-spacing: .32em; padding-left: .32em; }
 #title p { margin: 1.2em 0 0; font-size: clamp(.8rem, 1.3vw, 1.1rem); letter-spacing: .4em; padding-left: .4em; opacity: .8; }
-#captions { bottom: calc(var(--bar) + (100vh - 2 * var(--bar)) * .12); }
+#captions { bottom: calc(var(--bar) + (var(--vh) - 2 * var(--bar)) * .12); }
 #captions p {
   position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 0 24px; opacity: 0;
   font-size: clamp(1.4rem, 2.4vw, 2.4rem); font-weight: 600; letter-spacing: .18em;
@@ -94,3 +96,17 @@ body.is-loading { overflow: hidden; }
 #mute #slash { display: none; }
 #mute[aria-pressed="true"] #waves { display: none; }
 #mute[aria-pressed="true"] #slash { display: inline; }
+
+/* Dynamic viewport height so the letterbox follows mobile browser toolbars */
+@supports (height: 100dvh) { :root { --vh: 100dvh; } }
+
+/* Portrait / small screens */
+@media (max-aspect-ratio: 1/1) { :root { --ratio: 1.25; } }
+@media (max-width: 767px) {
+  #grain { display: none; }
+  #title h2 { font-size: clamp(1.7rem, 9vw, 2.4rem); letter-spacing: .2em; padding-left: .2em; }
+  #title p { font-size: .72rem; letter-spacing: .25em; padding-left: .25em; }
+  #captions p { font-size: clamp(1.05rem, 5vw, 1.4rem); letter-spacing: .1em; line-height: 1.35; padding: 0 20px; }
+  #loader h1 { font-size: 1.6rem; letter-spacing: .2em; text-align: center; padding: 0 16px; }
+  #mute { width: 44px; height: 44px; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+}
