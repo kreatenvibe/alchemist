@@ -1,4 +1,4 @@
 html, body { margin: 0; background: #000; }
 #film { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
-#scroller { height: 1740vh; } /* ~5vh per frame */
+#scroller { height: 3440vh; } /* ~5vh per frame */
 #hud { position: fixed; left: 16px; bottom: 16px; color: #fff; font: 12px monospace; opacity: .6; }
