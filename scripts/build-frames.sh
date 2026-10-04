@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Merge every source/NN.mp4 found (01..06) with 0.5s crossfades, no audio,
 # scale to 1920px wide at 15 fps -> source/merged-1080p.mp4 (near-lossless),
-# then export WebP frames from it (frames/ for desktop, frames-mobile/ at 720px 10 fps).
+# then export WebP frames from it (frames/ for desktop, frames-mobile/ for phones).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -46,9 +46,11 @@ ffmpeg -v error -y "${inputs[@]}" -filter_complex "$filter" -map "[$prev]" -an  
 rm -f frames/f_*.webp
 ffmpeg -v error -y -i "$MERGED" -c:v libwebp -quality "$QUALITY" -start_number 1 frames/f_%04d.webp
 
-# Mobile set: 720px wide, 10 fps (from the merged master)
+# Mobile set: full 1920px width, 10 fps, bottom cropped off. Portrait shows only the top
+# 570/720 of the frame (hides the watermark), so frames are pre-cropped to 1920x854 to spend
+# the size budget on resolution. main.js knows mobile frames are already cropped.
 rm -rf frames-mobile && mkdir -p frames-mobile
-ffmpeg -v error -y -i "$MERGED" -vf "fps=10,scale=720:-2:flags=lanczos" -c:v libwebp -quality "${MOBILE_QUALITY:-80}" -start_number 1 frames-mobile/f_%04d.webp
+ffmpeg -v error -y -i "$MERGED" -vf "fps=10,crop=1920:854:0:0" -c:v libwebp -quality "${MOBILE_QUALITY:-77}" -start_number 1 frames-mobile/f_%04d.webp
 
 echo "Done: $(ls frames/f_*.webp | wc -l) frames"
 echo "Mobile: $(ls frames-mobile/f_*.webp | wc -l) frames"

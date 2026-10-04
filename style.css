@@ -101,7 +101,13 @@ body.is-loading { overflow: hidden; }
 @supports (height: 100dvh) { :root { --vh: 100dvh; } }
 
 /* Portrait / small screens */
-@media (max-aspect-ratio: 1/1) { :root { --ratio: 1.25; } }
+@media (max-aspect-ratio: 1/1) {
+  :root { --ratio: 0; --bar: 0px; }        /* portrait: no letterbox, the film fills the screen */
+  #band { bottom: 0; height: 42dvh; background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, .72)); }
+  /* lower third, above the mute button and the home-indicator safe area */
+  #captions { bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); }
+  #captions p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+}
 @media (max-width: 767px) {
   #grain { display: none; }
   #title h2 { font-size: clamp(1.7rem, 9vw, 2.4rem); letter-spacing: .2em; padding-left: .2em; }

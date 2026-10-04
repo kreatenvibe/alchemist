@@ -9,8 +9,20 @@ const COARSE_STEP = 8;        // after the first frames, load every Nth frame so
 const VOL_ACTIVE = 0.6;       // volume while scrolling
 const VOL_IDLE = 0.35;        // volume when scrolling stops
 const IDLE_DELAY = 250;       // ms without scroll before dipping
-let letterbox = 2.39;         // cinematic aspect ratio; read from the --ratio CSS variable (portrait uses a taller one)
+let letterbox = 2.39;         // cinematic aspect ratio; read from the --ratio CSS variable (0 = full screen, used in portrait)
 const SCENES = 6;
+// Horizontal focus per scene: 0 = left edge, 1 = right edge of the source frame. Each entry is
+// [position within the scene 0..1, focus]; values are eased between entries, and between scenes
+// during the crossfade, so the camera pans gently. Only matters where the crop is narrower than
+// the frame (portrait full screen); the crop is clamped so it never leaves the frame.
+const FOCUS = [
+  [[0, 0.45]],                                         // 1: tree + sleeping Santiago
+  [[0, 0.30], [0.5, 0.75], [0.7, 0.5], [1, 0.5]],      // 2: Santiago -> the king, then stones close-up
+  [[0, 0.5]],                                          // 3
+  [[0, 0.5], [0.55, 0.5], [0.8, 0.4], [1, 0.4]],       // 4: oasis at the end
+  [[0, 0.5], [1, 0.5]],                                // 5: rider, then Santiago on the cliff
+  [[0, 0.5]],                                          // 6
+];
 const CROP_ANCHOR_Y = 570;    // lowest visible row, in 720p-equivalent pixels, scaled by frame height (watermark starts at ~576)
 
 const framePath = i => `${FRAME_DIR}/f_${String(i + 1).padStart(4, '0')}.webp`;
@@ -30,6 +42,8 @@ const grain = document.getElementById('grain');
 /* ---------- Frames ---------- */
 const images = new Array(FRAME_COUNT).fill(null);   // loaded, decoded images only
 let currentFrame = 0;
+let currentProgress = 0;
+let drawnFocus = -1;
 let drawnFrame = -1;
 
 function loadFrame(i) {
@@ -40,6 +54,27 @@ function loadFrame(i) {
   });
 }
 
+// Focus (0..1) at scroll progress p, interpolated across the FOCUS keyframes
+const FOCUS_KEYS = [];
+FOCUS.forEach((keys, s) => {
+  const k = keys.slice();
+  if (k[0][0] > 0) k.unshift([0, k[0][1]]);                              // hold at the start...
+  if (k[k.length - 1][0] < 1) k.push([1, k[k.length - 1][1]]);           // ...and at the end of the scene
+  k.forEach(([t, f]) => FOCUS_KEYS.push([s + 0.04 + t * 0.92, f]));
+});
+function focusAt(p) {
+  const u = p * SCENES;
+  const k = FOCUS_KEYS;
+  if (u <= k[0][0]) return k[0][1];
+  for (let n = 1; n < k.length; n++) {
+    if (u <= k[n][0]) {
+      const x = (u - k[n - 1][0]) / (k[n][0] - k[n - 1][0]);
+      return k[n - 1][1] + (k[n][1] - k[n - 1][1]) * x * x * (3 - 2 * x);   // smoothstep
+    }
+  }
+  return k[k.length - 1][1];
+}
+
 // Draw frame i, or the nearest loaded frame (either direction) if i is not ready yet
 function draw(i, force) {
   let j = -1;
@@ -48,23 +83,27 @@ function draw(i, force) {
     else if (images[i + d]) j = i + d;
   }
   const img = images[j];
-  if (!img || (j === drawnFrame && !force)) return;
+  const focus = focusAt(currentProgress);
+  if (!img || (j === drawnFrame && Math.abs(focus - drawnFocus) < 0.0005 && !force)) return;
   drawnFrame = j;
+  drawnFocus = focus;
   // cover the area between the letterbox bars; the visible source region never extends below
   // CROP_ANCHOR_Y (hides the corner watermark), zooming in further if the window is too tall
-  const bar = Math.max(0, (canvas.height - canvas.width / letterbox) / 2);
+  const bar = letterbox ? Math.max(0, (canvas.height - canvas.width / letterbox) / 2) : 0;
   const ah = canvas.height - 2 * bar;
   const nw = img.naturalWidth, nh = img.naturalHeight;
-  const maxY = CROP_ANCHOR_Y / 720 * nh;
+  const maxY = (MOBILE ? 1 : CROP_ANCHOR_Y / 720) * nh;   // mobile frames are already cropped at the anchor
   const s = Math.max(canvas.width / nw, ah / nh, ah / maxY);
   const sw = canvas.width / s, sh = ah / s;
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(img, (nw - sw) / 2, Math.max(0, maxY - sh), sw, sh, 0, bar, canvas.width, ah);
+  const sx = Math.min(nw - sw, Math.max(0, focus * nw - sw / 2));   // centre the crop on the focus point, clamped to the frame
+  ctx.drawImage(img, sx, Math.max(0, maxY - sh), sw, sh, 0, bar, canvas.width, ah);
 }
 
 function resize() {
-  letterbox = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ratio')) || 2.39;
+  const r = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ratio'));
+  letterbox = isNaN(r) ? 2.39 : r;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.round(innerWidth * dpr);
   canvas.height = Math.round(innerHeight * dpr);
@@ -196,6 +235,7 @@ ScrollTrigger.create({
   end: 'bottom bottom',
   onUpdate: self => {
     currentFrame = Math.min(FRAME_COUNT - 1, Math.round(self.progress * (FRAME_COUNT - 1)));
+    currentProgress = self.progress;
     draw(currentFrame);
     updateText(self.progress);
   }
