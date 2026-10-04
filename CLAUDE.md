@@ -7,7 +7,7 @@ Trailer-style scroll-scrubbed film of *The Alchemist*: 6 scenes, ~48 s.
 - WebP image sequence (`frames/f_%04d.webp`) drawn to a single fixed `<canvas>`.
 - Scroll position maps to frame index via GSAP ScrollTrigger; Lenis provides smooth scrolling.
 - GSAP, ScrollTrigger and Lenis load from CDN (no npm, no build step).
-- Frames are generated from `source/01.mp4–06.mp4` by `scripts/build-frames.sh` (ffmpeg, 0.5 s xfades, 1280 px wide, 15 fps, quality 70).
+- Frames are generated from `source/01.mp4–06.mp4` by `scripts/build-frames.sh` (ffmpeg, 0.5 s xfades, 1920 px wide, 15 fps, WebP quality 80, ~41 MB). The script first writes `source/merged-1080p.mp4` (x264 crf 12), then exports frames from it.
 
 ## Audio
 - Ambient loop (`audio/theme.mp3`) started by an "Enter" button (satisfies autoplay rules).
@@ -23,3 +23,6 @@ Trailer-style scroll-scrubbed film of *The Alchemist*: 6 scenes, ~48 s.
 ## Rules
 - Plain HTML/CSS/JS, no frameworks.
 - Make small, targeted edits.
+
+## Decisions
+- M2: source clips are already native 1920x1080, so Real-ESRGAN upscaling was skipped (it would only re-upscale a downscale). Frames are re-exported at 1920 directly. `CROP_ANCHOR_Y` is in 720p units and scales with frame height, so no change needed. Quality 80 keeps frames/ under 45 MB (85 would be ~50 MB).

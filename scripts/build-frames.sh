@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Merge every source/NN.mp4 found (01..06) with 0.5s crossfades, no audio,
-# scale to 1280px wide at 15 fps, export WebP frames (quality 85).
+# scale to 1920px wide at 15 fps -> source/merged-1080p.mp4 (near-lossless),
+# then export WebP frames from it.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 XF=0.5   # crossfade duration (s)
 FPS=15
-WIDTH=1280
-QUALITY=85
+WIDTH=1920
+QUALITY=${QUALITY:-80}
+MERGED=source/merged-1080p.mp4
 
 CLIPS=(source/0[1-6].mp4)
 [ -f "${CLIPS[0]}" ] || { echo "No clips in source/" >&2; exit 1; }
@@ -39,8 +41,9 @@ for ((i=1; i<${#CLIPS[@]}; i++)); do
 done
 filter="${filter%;}"
 
+ffmpeg -v error -y "${inputs[@]}" -filter_complex "$filter" -map "[$prev]" -an   -c:v libx264 -crf 12 -preset slow -pix_fmt yuv420p "$MERGED"
+
 rm -f frames/f_*.webp
-ffmpeg -v error -stats -y "${inputs[@]}" -filter_complex "$filter" -map "[$prev]" -an \
-  -c:v libwebp -quality "$QUALITY" -start_number 1 frames/f_%04d.webp
+ffmpeg -v error -y -i "$MERGED" -c:v libwebp -quality "$QUALITY" -start_number 1 frames/f_%04d.webp
 
 echo "Done: $(ls frames/f_*.webp | wc -l) frames"

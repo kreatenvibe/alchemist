@@ -7,7 +7,7 @@ const VOL_IDLE = 0.35;        // volume when scrolling stops
 const IDLE_DELAY = 250;       // ms without scroll before dipping
 const LETTERBOX = 2.39;       // cinematic aspect ratio
 const SCENES = 6;
-const CROP_ANCHOR_Y = 570;    // lowest visible row, in 1280x720 source pixels (watermark starts at ~576)
+const CROP_ANCHOR_Y = 570;    // lowest visible row, in 720p-equivalent pixels, scaled by frame height (watermark starts at ~576)
 
 const framePath = i => `frames/f_${String(i + 1).padStart(4, '0')}.webp`;
 
