@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Merge every source/NN.mp4 found (01..06) with 0.5s crossfades, no audio,
-# scale to 1280px wide at 15 fps, export WebP frames (quality 70).
+# scale to 1280px wide at 15 fps, export WebP frames (quality 85).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 XF=0.5   # crossfade duration (s)
 FPS=15
 WIDTH=1280
-QUALITY=70
+QUALITY=85
 
 CLIPS=(source/0[1-6].mp4)
 [ -f "${CLIPS[0]}" ] || { echo "No clips in source/" >&2; exit 1; }

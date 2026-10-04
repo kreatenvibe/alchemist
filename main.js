@@ -5,6 +5,9 @@ const LAZY_WORKERS = 4;       // parallel downloads for the remaining frames
 const VOL_ACTIVE = 0.6;       // volume while scrolling
 const VOL_IDLE = 0.35;        // volume when scrolling stops
 const IDLE_DELAY = 250;       // ms without scroll before dipping
+const LETTERBOX = 2.39;       // cinematic aspect ratio
+const SCENES = 6;
+const CROP_ANCHOR_Y = 570;    // lowest visible row, in 1280x720 source pixels (watermark starts at ~576)
 
 const framePath = i => `frames/f_${String(i + 1).padStart(4, '0')}.webp`;
 
@@ -15,6 +18,10 @@ const barFill = document.getElementById('barFill');
 const pct = document.getElementById('pct');
 const enterBtn = document.getElementById('enter');
 const muteBtn = document.getElementById('mute');
+const titleEl = document.getElementById('title');
+const captionEls = document.querySelectorAll('#captions p');
+const bandEl = document.getElementById('band');
+const grain = document.getElementById('grain');
 
 /* ---------- Frames ---------- */
 const images = new Array(FRAME_COUNT).fill(null);   // loaded, decoded images only
@@ -36,15 +43,25 @@ function draw(i, force) {
   const img = images[j];
   if (!img || (j === drawnFrame && !force)) return;
   drawnFrame = j;
-  const s = Math.max(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);   // cover
-  const w = img.naturalWidth * s, h = img.naturalHeight * s;
-  ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+  // cover the area between the letterbox bars; the visible source region never extends below
+  // CROP_ANCHOR_Y (hides the corner watermark), zooming in further if the window is too tall
+  const bar = Math.max(0, (canvas.height - canvas.width / LETTERBOX) / 2);
+  const ah = canvas.height - 2 * bar;
+  const nw = img.naturalWidth, nh = img.naturalHeight;
+  const maxY = CROP_ANCHOR_Y / 720 * nh;
+  const s = Math.max(canvas.width / nw, ah / nh, ah / maxY);
+  const sw = canvas.width / s, sh = ah / s;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, (nw - sw) / 2, Math.max(0, maxY - sh), sw, sh, 0, bar, canvas.width, ah);
 }
 
 function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.round(innerWidth * dpr);
   canvas.height = Math.round(innerHeight * dpr);
+  ctx.imageSmoothingEnabled = true;       // resizing the canvas resets context state
+  ctx.imageSmoothingQuality = 'high';
   draw(currentFrame, true);
 }
 addEventListener('resize', resize);
@@ -76,6 +93,28 @@ function lazyLoadRest() {
   };
   for (let w = 0; w < LAZY_WORKERS; w++) worker();
 }
+
+/* ---------- Film grain ---------- */
+const GRAIN_W = 1280, GRAIN_H = 720;
+grain.width = GRAIN_W;
+grain.height = GRAIN_H;
+const gctx = grain.getContext('2d');
+const noise = gctx.createImageData(GRAIN_W, GRAIN_H);
+const noise32 = new Uint32Array(noise.data.buffer);
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+function drawGrain() {
+  for (let i = 0; i < noise32.length; i++) {
+    noise32[i] = 0xff000000 | ((Math.random() * 256) | 0) * 0x010101;
+  }
+  gctx.putImageData(noise, 0, 0);
+}
+drawGrain();
+let grainTick = 0;
+(function grainLoop() {
+  if (!reduceMotion.matches && !document.hidden && ++grainTick % 2 === 0) drawGrain();
+  requestAnimationFrame(grainLoop);
+})();
 
 /* ---------- Audio ---------- */
 const audio = new Audio('audio/theme.mp3');
@@ -114,7 +153,7 @@ function onScrollActivity() {
 
 /* ---------- Scroll ---------- */
 gsap.registerPlugin(ScrollTrigger);
-const lenis = new Lenis();
+const lenis = new Lenis({ lerp: 0.07 });
 lenis.stop();
 lenis.on('scroll', () => { ScrollTrigger.update(); onScrollActivity(); });
 gsap.ticker.add(t => lenis.raf(t * 1000));
@@ -127,17 +166,34 @@ ScrollTrigger.create({
   onUpdate: self => {
     currentFrame = Math.min(FRAME_COUNT - 1, Math.round(self.progress * (FRAME_COUNT - 1)));
     draw(currentFrame);
+    updateText(self.progress);
   }
 });
+
+// Title fades out as scrolling starts; one caption per scene, fading in and out inside its range
+function updateText(p) {
+  titleEl.style.opacity = Math.max(0, 1 - p / 0.012);
+  const scene = Math.min(SCENES - 1, Math.floor(p * SCENES));
+  const t = p * SCENES - scene;                       // 0..1 within the scene
+  const clamp01 = x => Math.min(1, Math.max(0, x));
+  const fadeIn = clamp01((t - 0.08) / 0.10);          // 8-18%
+  const a = Math.min(fadeIn, clamp01((0.92 - t) / 0.10));   // visible to 82%, gone by 92%
+  captionEls.forEach((el, i) => {
+    el.style.opacity = i === scene ? a : 0;
+    el.style.transform = `translateY(${(1 - fadeIn) * 8}px)`;   // drift up while fading in
+  });
+  bandEl.style.opacity = a;
+}
+updateText(0);
 
 // End section: last frame stays as background, darkened, text fades in
 gsap.to('#veil', {
   opacity: 0.6, ease: 'none',
   scrollTrigger: { trigger: '#end', start: 'top bottom', end: 'top top', scrub: true }
 });
-gsap.to('#end p', {
+gsap.to('#end .column', {
   opacity: 1, ease: 'none',
-  scrollTrigger: { trigger: '#end', start: 'top 40%', end: 'top top', scrub: true }
+  scrollTrigger: { trigger: '#end', start: 'top 50%', end: 'top 10%', scrub: true }
 });
 
 /* ---------- Enter ---------- */

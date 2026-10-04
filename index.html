@@ -4,11 +4,32 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Alchemist</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="is-loading">
   <canvas id="film"></canvas>
   <div id="veil"></div>
+  <div id="vignette"></div>
+  <canvas id="grain"></canvas>
+  <div id="band"></div>
+  <div class="bar bar-top"></div>
+  <div class="bar bar-bottom"></div>
+
+  <div id="title">
+    <h2>The Alchemist</h2>
+    <p>Scroll to begin the journey</p>
+  </div>
+  <div id="captions" aria-live="polite">
+    <p>A shepherd dreamed of treasure.</p>
+    <p>A stranger spoke of his destiny.</p>
+    <p>He lost everything to find his way.</p>
+    <p>The desert tested his heart.</p>
+    <p>And he learned to speak to the wind.</p>
+    <p>The treasure was where it all began.</p>
+  </div>
 
   <div id="loader">
     <h1>The Alchemist</h1>
@@ -20,7 +41,19 @@
   <main>
     <section id="film-scroll"></section>
     <section id="end">
-      <p>Summary coming soon</p>
+      <div class="column">
+        <h2>The Story</h2>
+        <p>Santiago, a young shepherd in Andalusia, keeps dreaming of a treasure hidden at the pyramids of Egypt. Urged on by a mysterious king, he sells his flock and sets out. Robbed in Tangier, he rebuilds his life in a crystal shop, crosses the desert with a caravan, finds love at an oasis, and learns from an alchemist to listen to his heart and the world around him. At the pyramids he discovers that the treasure was buried back where his journey began, but he could only learn that by making the journey.</p>
+        <h2>What it teaches</h2>
+        <ul>
+          <li>Follow your own path, even when it's uncertain.</li>
+          <li>Setbacks are part of the journey, not the end of it.</li>
+          <li>Love should free you, not hold you back.</li>
+          <li>The journey itself changes you.</li>
+        </ul>
+        <footer>Based on the novel by Paulo Coelho.</footer>
+        <footer class="ai-note">Visuals and music generated with AI.</footer>
+      </div>
     </section>
   </main>
 
