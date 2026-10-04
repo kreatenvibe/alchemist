@@ -36,6 +36,19 @@ const enterBtn = document.getElementById('enter');
 const muteBtn = document.getElementById('mute');
 const titleEl = document.getElementById('title');
 const captionEls = document.querySelectorAll('#captions p');
+// Split every caption into word spans (real spaces stay between them so wrapping and reading are unchanged)
+const captionWords = [...captionEls].map(el => {
+  const words = el.textContent.trim().split(/\s+/);
+  el.textContent = '';
+  return words.map((word, i) => {
+    const span = document.createElement('span');
+    span.className = 'w';
+    span.textContent = word;
+    if (i) el.append(' ');
+    el.append(span);
+    return span;
+  });
+});
 const bandEl = document.getElementById('band');
 const grain = document.getElementById('grain');
 
@@ -249,9 +262,24 @@ function updateText(p) {
   const clamp01 = x => Math.min(1, Math.max(0, x));
   const fadeIn = clamp01((t - 0.08) / 0.10);          // 8-18%
   const a = Math.min(fadeIn, clamp01((0.92 - t) / 0.10));   // visible to 82%, gone by 92%
-  captionEls.forEach((el, i) => {
-    el.style.opacity = i === scene ? a : 0;
-    el.style.transform = `translateY(${(1 - fadeIn) * 8}px)`;   // drift up while fading in
+  captionEls.forEach((el, i) => { el.style.opacity = i === scene ? 1 : 0; });
+  const words = captionWords[scene];
+  const n = words.length;
+  words.forEach((w, k) => {
+    if (reduceMotion.matches) {                       // plain fade, no motion
+      w.style.opacity = a;
+      w.style.transform = w.style.filter = '';
+      return;
+    }
+    // Each word enters over 4% of the scene, staggered across 8-14%, fully in by 18%;
+    // leaves the same way from 82%, rising and blurring slightly, gone by 92%
+    const f = n > 1 ? k / (n - 1) : 0;
+    const inP = clamp01((t - (0.08 + 0.06 * f)) / 0.04);
+    const outP = clamp01((t - (0.82 + 0.06 * f)) / 0.04);
+    const e = 1 - (1 - inP) ** 3;                     // ease out
+    w.style.opacity = e * (1 - outP);
+    w.style.transform = `translateY(${(1 - e) * 0.6 - outP * 0.3}em)`;
+    w.style.filter = `blur(${((1 - e) * 6 + outP * 4).toFixed(2)}px)`;
   });
   bandEl.style.opacity = a;
 }

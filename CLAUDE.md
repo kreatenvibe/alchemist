@@ -15,7 +15,7 @@ Trailer-style scroll-scrubbed film of *The Alchemist*: 6 scenes, ~48 s.
 
 ## Scope
 - Desktop first; mobile via `frames-mobile/` (M5).
-- Animated captions later.
+- Animated captions: done (M6).
 
 ## Structure
 `index.html`, `style.css`, `main.js` · `frames/` · `audio/` · `source/` (git-ignored) · `scripts/`
@@ -30,3 +30,4 @@ Trailer-style scroll-scrubbed film of *The Alchemist*: 6 scenes, ~48 s.
 - M4: Vercel static deploy. `vercel.json` sets `Cache-Control: public, max-age=31536000, immutable` on `/frames/*` and `/audio/*`; `.vercelignore` excludes `source/`, `scripts/`, `CLAUDE.md`. Because the cache is immutable, re-exported frames or audio need new paths (e.g. `frames-v2/`) or a hard-refresh won't be enough for returning visitors.
 - M5: `scripts/build-frames.sh` also writes `frames-mobile/`: full 1920 px width, bottom-cropped to 1920x854 (the part below 570/720 is never shown), 10 fps, WebP q77, 459 frames, ~19.3 MB. `main.js` uses it when `(max-width: 767px), (pointer: coarse)` matches and treats those frames as already cropped. Mobile starts muted (unless the visitor saved a choice), grain is off, and Lenis leaves touch scrolling native. Portrait (`max-aspect-ratio: 1/1`) is true full screen (`--ratio: 0`, `--bar: 0px`, no letterbox); landscape keeps 2.39:1. Heights use `--vh` (100dvh when supported). iOS ignores `audio.volume`, so scroll-based volume fades won't work there; mute still does.
 - M5 camera: `FOCUS` in main.js is a per-scene list of [position in scene 0..1, focus 0..1] keyframes (0 = left edge, 1 = right edge of the source frame). Smoothstep between keys and across the scene crossfade; the crop is clamped to the frame. Portrait captions sit in the lower third over a dark gradient band, clamped to 2 lines, above the mute button and `env(safe-area-inset-bottom)`.
+- M6: captions are split into `.w` word spans in `main.js`. Per scene (t = 0..1): word k enters over 4% of the scene, staggered across 8-14%, fully visible by 18%; leaves the same way from 82%, gone by 92% (opacity, lift in `em`, blur up to 6 px). It is a pure function of scroll progress, so it reverses on scroll up. `prefers-reduced-motion` (checked live) falls back to a plain whole-caption fade with the same timing. The portrait 2-line `line-clamp` was removed because it blockifies the word spans; the captions are short enough to wrap to 2 lines at 320 px.
